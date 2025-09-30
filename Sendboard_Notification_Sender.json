@@ -1,0 +1,128 @@
+{
+  "name": "Sendboard Notification Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 13
+            }
+          ]
+        }
+      },
+      "id": "9adbc95e-83b7-4d24-a09c-b2cb9c70c92b",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.trello.com/1/members/me/notifications",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "trelloApi",
+        "options": {}
+      },
+      "id": "a8db396a-e8af-4842-b622-f190da309749",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        360
+      ],
+      "credentials": {
+        "trelloApi": {
+          "id": "EAQPy34nUnFfvO7x",
+          "name": "Willow Trello"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sendboardBotUsername = 'sendboardbot64113175';\nconst notificationType = 'commentCard';\nconst timeFrame = 24 * 60 * 60 * 1000; // 24 hours in milliseconds\n\nconst now = new Date();\nconst filteredNotifications = items.filter(item => {\n  const notificationDate = new Date(item.json.date);\n  const memberCreator = item.json.memberCreator;\n\n  return (\n    memberCreator &&\n    memberCreator.username === sendboardBotUsername &&\n    item.json.type === notificationType &&\n    (now - notificationDate) < timeFrame\n  );\n});\n\nconst parseNotificationText = (text) => {\n  const nameMatch = text.match(/From \\*\\*(.*) <(.*)>/);\n  const name = nameMatch ? nameMatch[1] : '';\n  const email = nameMatch ? nameMatch[2] : '';\n\n  // Extract the body between \"------\" delimiters\n  const bodyMatch = text.match(/------\\s*([\\s\\S]*?)\\s*------/);\n  const body = bodyMatch ? bodyMatch[1].trim() : '';\n\n  const toMatch = text.match(/To: (.*)/);\n  const to = toMatch ? toMatch[1].trim() : '';\n\n  const ccMatch = text.match(/Cc: (.*)/);\n  const cc = ccMatch ? ccMatch[1].trim() : '';\n\n  return { name, email, body, to, cc };\n};\n\nlet htmlContent = '';\n\nfilteredNotifications.forEach(item => {\n  const data = item.json.data;\n  const notificationText = data.text;\n  const parsedData = parseNotificationText(notificationText);\n\n  const notificationHtml = `\n    <div class=\"notification\">\n      <div><strong>Date:</strong> ${item.json.date}</div>\n      <div><strong>Board:</strong> ${data.board.name}</div>\n      <div><strong>Card:</strong> ${data.card.name}</div>\n      <div><strong>Name:</strong> ${parsedData.name}</div>\n      <div><strong>Email:</strong> ${parsedData.email}</div>\n      <div><strong>Body:</strong> ${parsedData.body}</div>\n      <div><strong>To:</strong> ${parsedData.to}</div>\n      <div><strong>Cc:</strong> ${parsedData.cc}</div>\n      <hr>\n    </div>\n  `;\n\n  htmlContent += notificationHtml;\n});\n\n// Return a single item with all HTML content\nreturn [{ json: { htmlContent } }];\n"
+      },
+      "id": "050bf593-3323-4e88-92c2-d81593fdfd87",
+      "name": "Code1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "=chat@hellotax.co.za",
+        "subject": "=SendBoardBot Notifications for {{ $today }}",
+        "message": "={{ $json.htmlContent }}",
+        "options": {}
+      },
+      "id": "05e85959-bcb3-449b-899c-1302972c2050",
+      "name": "Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1260,
+        360
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fjiwtxJbsMRMvlOZ",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ab0807f5-7ff0-4be6-a539-ad12193e1ea5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "94ba279f6d6eaad87c028bd25e1f84bae11afdf584c6faec82fe7cc13583881b"
+  },
+  "id": "05bleN0cgMqjj9nS",
+  "tags": []
+}
