@@ -1,0 +1,394 @@
+{
+  "name": "Yearly Document Email Reminder (HelloTax)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtDayOfMonth": 20,
+              "triggerAtHour": 13
+            }
+          ]
+        }
+      },
+      "id": "b6188456-2c01-4b83-899b-0ef5705929f6",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "16568428-107d-448a-86e1-52cdc5082fe4",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        260,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Regex for basic email matching\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/;\n\n// Process each item\nreturn items.map(item => {\n    const desc = item.json.desc || '';\n    const match = desc.match(emailRegex);\n\n    const email = match ? match[0] : null;\n    const hasEmail = !!email;\n    const cardId = item.json.id || null;\n\n    return {\n        json: {\n            cardId,\n            email,\n            hasEmail\n        }\n    };\n});\n\n"
+      },
+      "id": "b0d891b9-092f-47de-9958-bcd74e9ccabf",
+      "name": "Email Extractor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the checklist input from the previous node\nconst checklistData = items.map(item => item.json);\n\n// Find the checklist named 'DOCS' (case-insensitive)\nconst docsChecklist = checklistData.find(\n    checklist => checklist.name?.toLowerCase() === 'docs'\n);\n\n// Default return values\nlet checkListItems = null;\nlet docsListEmpty = null;\n\nif (docsChecklist) {\n    const items = docsChecklist.checkItems || [];\n\n    if (items.length === 0) {\n        checkListItems = null;\n        docsListEmpty = true;\n    } else {\n        // Format checklist items into plain HTML-style list\n        checkListItems = items.map(item => `- ${item.name}`).join('\\n');\n        docsListEmpty = false;\n    }\n}\n\n// Return values wrapped in n8n format\nreturn [{\n    json: {\n        checkListItems,\n        docsListEmpty\n    }\n}];\n"
+      },
+      "id": "c23b7136-7758-4fc8-b55b-c1d6d5109b10",
+      "name": "Checklist Item Extraction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.trello.com/1/cards/{{ $json.cardId }}/checklists",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "trelloApi",
+        "options": {}
+      },
+      "id": "7eb3d00e-6a64-4a5c-bc6c-5926cd637da0",
+      "name": "Fetch Checklists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        380
+      ],
+      "credentials": {
+        "trelloApi": {
+          "id": "EAQPy34nUnFfvO7x",
+          "name": "Willow Trello"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "list",
+        "operation": "getCards",
+        "id": "66263bfb94b1dc7ad1c77b9a",
+        "returnAll": true,
+        "additionalFields": {}
+      },
+      "id": "cccab72b-b066-4520-92d1-d9c7189492e7",
+      "name": "Get Trello Cards",
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        100,
+        360
+      ],
+      "credentials": {
+        "trelloApi": {
+          "id": "EAQPy34nUnFfvO7x",
+          "name": "Willow Trello"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "cea2b6f8-7ec0-4445-84a4-02e6783ed382",
+      "name": "Merge1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1060,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a780046f-2562-43c8-acaf-99564aa19821",
+              "leftValue": "={{ $json.hasEmail }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "763a9c55-33d9-4385-887b-e5faa8efdaaf",
+      "name": "If has email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        580,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ba703e09-f20d-47b4-81d0-36ea5f266086",
+              "leftValue": "={{ $json.docsListEmpty }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5583fedf-86d8-4c46-8832-9b29cf8482fd",
+      "name": "If has items",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1220,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "2025 Tax Season",
+        "message": "=<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Tax Questionnaire</title>\n  <style>\n    body {\n      font-family: Arial, sans-serif;\n      line-height: 1.6;\n      color: #333;\n      padding: 20px;\n    }\n    a.button {\n      display: inline-block;\n      padding: 10px 15px;\n      background-color: #007BFF;\n      color: #fff;\n      text-decoration: none;\n      border-radius: 5px;\n      margin-top: 10px;\n    }\n    a.button:hover {\n      background-color: #0056b3;\n    }\n  </style>\n</head>\n<body>\n\n  <p>Hi there!</p>\n\n  <p>We’ve put together a quick questionnaire to help us understand your tax situation and make the process as smooth as possible — it includes all the info you will need for the upcoming tax season.</p>\n\n  <p>\n    👉 <a class=\"button\" href=\"https://nicole1295.typeform.com/to/Vwaa8O87\" target=\"_blank\">Start the Questionnaire</a>\n  </p>\n\n  <p>You’ll also find a list of the documents we’ll need to complete your return below.</p>\n\n{{ $json.checkListItems }}\n\n  <p>Feel free to send those through when you're ready, and reach out if you have any questions!</p>\n\n  <p>kind regards, the hello.tax team</p>\n\n</body>\n</html>\n",
+        "options": {
+          "ccList": "chat@hellotax.co.za"
+        }
+      },
+      "id": "a86e7d08-ce49-4428-9a1b-61aa3fb7f217",
+      "name": "Gmail (has items)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1380,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fjiwtxJbsMRMvlOZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "2025 Tax Season",
+        "message": "=<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Tax Questionnaire</title>\n  <style>\n    body {\n      font-family: Arial, sans-serif;\n      line-height: 1.6;\n      color: #333;\n      padding: 20px;\n    }\n    a.button {\n      display: inline-block;\n      padding: 10px 15px;\n      background-color: #007BFF;\n      color: #fff;\n      text-decoration: none;\n      border-radius: 5px;\n      margin-top: 10px;\n    }\n    a.button:hover {\n      background-color: #0056b3;\n    }\n  </style>\n</head>\n<body>\n\n  <p>Hi there!</p>\n\n  <p>We’ve put together a quick questionnaire to help us understand your tax situation and make the process as smooth as possible — it includes all the info you will need for the upcoming tax season.</p>\n\n  <p>\n    👉 <a class=\"button\" href=\"https://nicole1295.typeform.com/to/Vwaa8O87\" target=\"_blank\">Start the Questionnaire</a>\n  </p>\n\n  <p>Feel free to reach out if you have any questions!</p>\n\n  <p>kind regards, the hello.tax team</p>\n\n</body>\n</html>\n",
+        "options": {
+          "ccList": "chat@hellotax.co.za"
+        }
+      },
+      "id": "fdaa3727-c21e-4d5a-a928-4d1a1c4a490f",
+      "name": "Gmail (no items)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1380,
+        440
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fjiwtxJbsMRMvlOZ",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Trello Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Email Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Checklists": {
+      "main": [
+        [
+          {
+            "node": "Checklist Item Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Trello Cards": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checklist Item Extraction": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Extractor": {
+      "main": [
+        [
+          {
+            "node": "If has email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "If has items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If has email": {
+      "main": [
+        [
+          {
+            "node": "Fetch Checklists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If has items": {
+      "main": [
+        [
+          {
+            "node": "Gmail (has items)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail (no items)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail (has items)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail (no items)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4ea847c8-87a9-4d41-8272-120686b07364",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "94ba279f6d6eaad87c028bd25e1f84bae11afdf584c6faec82fe7cc13583881b"
+  },
+  "id": "i3xvv3XWb0T89fNL",
+  "tags": []
+}
