@@ -1,0 +1,196 @@
+{
+  "name": "Trello board sorter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 13
+            }
+          ]
+        }
+      },
+      "id": "9d0d99ed-72ef-41d6-9bd5-0d7bc6a341f5",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        820,
+        360
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "9e90d75b-89ba-4cb2-925c-57ab1bb07b0f",
+      "name": "Replace Me",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.trello.com/1/lists/66960d536f40e54c454450f6/cards?key=e4c047fc5c71280161f6d5a821fda824&token=ATTA9cd0e2192326f110deddd12737e8e88e1c3f3050964612c3f98b1deefbedb2a3178E18FA",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "trelloApi",
+        "options": {}
+      },
+      "id": "5ca3e645-7bd7-40e7-bf07-43cdfddb2c19",
+      "name": "Card Pull Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        360
+      ],
+      "credentials": {
+        "trelloApi": {
+          "id": "EAQPy34nUnFfvO7x",
+          "name": "Willow Trello"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "58fcf1ce-3d7b-41bb-908d-6328eda78252",
+      "name": "Loop Over Cards",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1220,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const card = items[0].json;\nconst labels = card.labels;\n\nconst labelToListMapping = {\n  '2025': '6612ee9f6d50d5d3d85c54f6',\n  '2024': '64e3b2433e394d24cd4b62c7',\n  '2023': '640c03c59682029a7e86a8d6',\n  '2022': '61b5a9ccf177f06f19f8767a',\n  '2021': '6154143c37f5f86246dbe477',\n  '2020': '6154143c37f5f86246dbe477',\n  '2019': '5fd06b7851e4c086c072ec50',\n  '2018': '5f8457edff131f6e8a601426',\n  '2017': '5d9eebde39ef4d0e35e6ff7b',\n  '2016': '5d9eebdbfe6fea8fefcb634c',\n  '2015': '5cd1591fba9eef383f102424',\n  '2014': '613b522812259c7db15e8d2c',\n  '2013': '613b522812259c7db15e8d2c',\n};\n\nlet targetListId = null;\n\nfor (const label of labels) {\n  if (labelToListMapping[label.name]) {\n    targetListId = labelToListMapping[label.name];\n    break;\n  }\n}\n\nif (targetListId) {\n  console.log(`Moving card ${card.id} to list ${targetListId}`);\n  return [\n    {\n      json: {\n        cardId: card.id,\n        targetListId: targetListId\n      }\n    }\n  ];\n} else {\n  console.log(`No corresponding list found for card ${card.id}`);\n  return [];\n}\n"
+      },
+      "id": "089311fb-d9ca-458f-8d2b-d3d09bc0f27d",
+      "name": "Format send data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.trello.com/1/cards/{{ $json.cardId }}?key=e4c047fc5c71280161f6d5a821fda824&token=ATTA9cd0e2192326f110deddd12737e8e88e1c3f3050964612c3f98b1deefbedb2a3178E18FA",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "trelloApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "idList",
+              "value": "={{ $json.targetListId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "86994b62-eca9-4d21-a47f-b949afc4aa70",
+      "name": "Move cards",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1620,
+        360
+      ],
+      "credentials": {
+        "trelloApi": {
+          "id": "EAQPy34nUnFfvO7x",
+          "name": "Willow Trello"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Card Pull Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Card Pull Request": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Cards": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Format send data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format send data": {
+      "main": [
+        [
+          {
+            "node": "Move cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move cards": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "883759ba-edda-489e-944b-c4f0914fbd7e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "94ba279f6d6eaad87c028bd25e1f84bae11afdf584c6faec82fe7cc13583881b"
+  },
+  "id": "kpRCChrTHSpLV47t",
+  "tags": []
+}
